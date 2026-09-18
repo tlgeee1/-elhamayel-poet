@@ -400,14 +400,47 @@ function setupPhotoForm(){
 }
 
 /* ===== الفيديوهات ===== */
-/* الشاعر بيلزق أي رابط يوتيوب زي ما هو (مشاهدة عادية / مختصر / تضمين)
-   والكود بيحوّله لصيغة embed تلقائيًا */
+/* نوعين: (1) رابط يوتيوب عادي بيتحول لصيغة embed تلقائيًا
+           (2) رفع مباشر من جهاز الشاعر لحساب Cloudinary مجاني (بدون سيرفر عندنا) */
+
+const CLOUDINARY_CLOUD_NAME = 'pjrnlxmh';
+const CLOUDINARY_UPLOAD_PRESET = 'elhamayel_videos';
 
 function toEmbedUrl(link){
   if(!link) return null;
   const m = link.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/);
   if(m) return `https://www.youtube.com/embed/${m[1]}`;
   return null;
+}
+
+// بيرفع ملف الفيديو مباشرة من المتصفح لـ Cloudinary، وبيرجع رابط الفيديو الجاهز
+function uploadVideoToCloudinary(file, onProgress){
+  return new Promise((resolve, reject)=>{
+    const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.upload.onprogress = (e)=>{
+      if(e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = ()=>{
+      try{
+        const data = JSON.parse(xhr.responseText);
+        if(xhr.status >= 200 && xhr.status < 300 && data.secure_url){
+          resolve(data.secure_url);
+        }else{
+          reject(new Error(data.error?.message || 'فشل الرفع'));
+        }
+      }catch(e){
+        reject(new Error('استجابة غير متوقعة من سيرفر الرفع'));
+      }
+    };
+    xhr.onerror = ()=> reject(new Error('فشل الاتصال بسيرفر الرفع'));
+    xhr.send(formData);
+  });
 }
 
 async function loadVideosAdmin(){
@@ -422,12 +455,13 @@ async function loadVideosAdmin(){
     }
     snap.forEach(doc=>{
       const v = doc.data();
+      const isUpload = v.type === 'upload';
       const row = document.createElement('div');
       row.className = 'item-row';
       row.innerHTML = `
         <div>
-          <h4>${escapeHtml(v.title || 'بدون عنوان')}</h4>
-          <div class="snippet">${escapeHtml(v.embedUrl)}</div>
+          <h4>${escapeHtml(v.title || 'بدون عنوان')} ${isUpload ? '<span class="form-note" style="display:inline;">(فيديو مرفوع)</span>' : '<span class="form-note" style="display:inline;">(يوتيوب)</span>'}</h4>
+          <div class="snippet">${escapeHtml(isUpload ? v.fileUrl : v.embedUrl)}</div>
         </div>
         <div class="item-actions">
           <button class="btn-sm" data-action="edit">تعديل</button>
@@ -441,6 +475,7 @@ async function loadVideosAdmin(){
         if(!confirm('متأكد إنك عايز تحذف الفيديو ده؟')) return;
         await db.collection('videos').doc(doc.id).delete();
         if(editingVideoId === doc.id) cancelEditVideo();
+        if(editingVideoFileId === doc.id) cancelEditVideoFile();
         loadVideosAdmin();
       });
       list.appendChild(row);
@@ -450,9 +485,16 @@ async function loadVideosAdmin(){
   }
 }
 
-let editingVideoId = null;
+/* -- تعديل فيديو: بيوجّه للفورم المناسب حسب نوعه -- */
+
+let editingVideoId = null;       // فيديو من نوع "يوتيوب" بيتعدل
+let editingVideoFileId = null;   // فيديو من نوع "مرفوع" بيتعدل
 
 function startEditVideo(id, v){
+  if(v.type === 'upload'){
+    startEditVideoFile(id, v);
+    return;
+  }
   editingVideoId = id;
   document.getElementById('videoTitle').value = v.title || '';
   document.getElementById('videoUrl').value = v.embedUrl || '';
@@ -491,11 +533,11 @@ function setupVideoForm(){
     btn.disabled = true;
     try{
       if(editingVideoId){
-        await db.collection('videos').doc(editingVideoId).update({ title, embedUrl });
+        await db.collection('videos').doc(editingVideoId).update({ title, embedUrl, type: 'youtube' });
         cancelEditVideo();
       }else{
         await db.collection('videos').add({
-          title, embedUrl, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          title, embedUrl, type: 'youtube', createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         document.getElementById('videoTitle').value = '';
         document.getElementById('videoUrl').value = '';
@@ -509,6 +551,98 @@ function setupVideoForm(){
   });
 }
 
+/* -- رفع فيديو من الجهاز (Cloudinary) -- */
+
+function startEditVideoFile(id, v){
+  editingVideoFileId = id;
+  document.getElementById('videoUploadTitle').value = v.title || '';
+  document.getElementById('videoExistingUrl').value = v.fileUrl || '';
+  document.getElementById('videoFile').value = '';
+  const preview = document.getElementById('videoPreview');
+  if(v.fileUrl){ preview.src = v.fileUrl; preview.style.display = 'block'; }
+  document.getElementById('videoUploadStatus').textContent = 'الفيديو الحالي معروض فوق — اختر فيديو جديد بس لو عايز تستبدله.';
+  document.getElementById('addVideoFileBtn').textContent = 'حفظ التعديل';
+  document.getElementById('cancelVideoFileEditBtn').style.display = 'inline-block';
+  document.getElementById('videoFile').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function cancelEditVideoFile(){
+  editingVideoFileId = null;
+  document.getElementById('videoUploadTitle').value = '';
+  document.getElementById('videoFile').value = '';
+  document.getElementById('videoExistingUrl').value = '';
+  document.getElementById('videoUploadStatus').textContent = '';
+  document.getElementById('videoPreview').style.display = 'none';
+  document.getElementById('addVideoFileBtn').textContent = 'رفع الفيديو';
+  document.getElementById('cancelVideoFileEditBtn').style.display = 'none';
+}
+
+function setupVideoUploadForm(){
+  const btn = document.getElementById('addVideoFileBtn');
+  const cancelBtn = document.getElementById('cancelVideoFileEditBtn');
+  const fileInput = document.getElementById('videoFile');
+  const preview = document.getElementById('videoPreview');
+  const status = document.getElementById('videoUploadStatus');
+  if(!btn) return;
+
+  fileInput.addEventListener('change', ()=>{
+    const file = fileInput.files[0];
+    if(!file) return;
+    if(file.size > 100 * 1024 * 1024){
+      status.textContent = 'الفيديو كبير أوي (أكتر من 100 ميجا)، جرّب فيديو أقصر أو بجودة أقل.';
+      fileInput.value = '';
+      return;
+    }
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+    const mb = (file.size / (1024*1024)).toFixed(1);
+    status.textContent = `الفيديو جاهز للرفع (${mb} ميجا).`;
+  });
+
+  if(cancelBtn) cancelBtn.addEventListener('click', cancelEditVideoFile);
+
+  btn.addEventListener('click', async ()=>{
+    const title = document.getElementById('videoUploadTitle').value.trim();
+    const file = fileInput.files[0];
+    const existingUrl = document.getElementById('videoExistingUrl').value;
+
+    if(!file && !existingUrl){
+      alert('اختار فيديو الأول.');
+      return;
+    }
+
+    btn.disabled = true;
+    try{
+      let fileUrl = existingUrl;
+      if(file){
+        status.textContent = 'جاري الرفع... 0%';
+        fileUrl = await uploadVideoToCloudinary(file, (pct)=>{
+          status.textContent = `جاري الرفع... ${pct}%`;
+        });
+      }
+
+      if(editingVideoFileId){
+        await db.collection('videos').doc(editingVideoFileId).update({ title, fileUrl, type: 'upload' });
+        cancelEditVideoFile();
+      }else{
+        await db.collection('videos').add({
+          title, fileUrl, type: 'upload', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        document.getElementById('videoUploadTitle').value = '';
+        fileInput.value = '';
+        preview.style.display = 'none';
+        status.textContent = '';
+      }
+      loadVideosAdmin();
+    }catch(e){
+      status.textContent = '';
+      alert('حصل خطأ أثناء رفع الفيديو، حاول تاني. (' + e.message + ')');
+    }finally{
+      btn.disabled = false;
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   setupAuth();
   setupTabs();
@@ -516,4 +650,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   setupBulkImport();
   setupPhotoForm();
   setupVideoForm();
+  setupVideoUploadForm();
 });
