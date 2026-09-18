@@ -130,8 +130,11 @@ async function loadVideos(){
       const v = doc.data();
       const card = document.createElement('div');
       card.className = 'video-card';
+      const mediaHtml = v.type === 'upload'
+        ? `<video src="${escapeHtml(v.fileUrl)}" controls preload="metadata" style="width:100%;height:100%;"></video>`
+        : `<iframe src="${escapeHtml(v.embedUrl)}" allowfullscreen loading="lazy"></iframe>`;
       card.innerHTML = `
-        <div class="frame"><iframe src="${escapeHtml(v.embedUrl)}" allowfullscreen loading="lazy"></iframe></div>
+        <div class="frame">${mediaHtml}</div>
         <div class="cap">${escapeHtml(v.title||'')}</div>
       `;
       grid.appendChild(card);
