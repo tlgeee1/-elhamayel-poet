@@ -44,7 +44,16 @@ function setupAuth(){
     try{
       await auth.signInWithEmailAndPassword(email, password);
     }catch(e){
-      showLoginError('البيانات غلط أو الحساب مش متعمل لسه في Firebase (راجع README.md).');
+      const messages = {
+        'auth/unauthorized-domain': 'دومين الموقع ده مش مضاف فى Firebase (Authentication → Settings → Authorized domains).',
+        'auth/user-not-found': 'مفيش حساب بالإيميل ده.',
+        'auth/wrong-password': 'كلمة المرور غلط.',
+        'auth/invalid-credential': 'الإيميل أو كلمة المرور غلط.',
+        'auth/invalid-email': 'صيغة الإيميل غلط.',
+        'auth/too-many-requests': 'محاولات كتير غلط، استنى شوية وجرب تاني.',
+        'auth/network-request-failed': 'فيه مشكلة فى الاتصال بالإنترنت.'
+      };
+      showLoginError((messages[e.code] || e.message || 'حصل خطأ غير متوقع.') + ` (${e.code || ''})`);
     }finally{
       loginBtn.disabled = false;
       loginBtn.textContent = 'دخول';
