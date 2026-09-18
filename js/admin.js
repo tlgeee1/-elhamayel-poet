@@ -235,6 +235,70 @@ function setupBulkImport(){
   });
 }
 
+/* ===== صورة الشاعر الرئيسية (Hero) ===== */
+/* بتتخزن في مستند إعدادات واحد ثابت: settings/profile، حقل heroImage */
+
+function setupHeroPhotoForm(){
+  const fileInput = document.getElementById('heroPhotoFile');
+  const preview = document.getElementById('heroPhotoPreview');
+  const status = document.getElementById('heroPhotoStatus');
+  const btn = document.getElementById('saveHeroPhotoBtn');
+  if(!btn) return;
+
+  let pendingImage = null;
+
+  // اعرض الصورة الحالية (لو موجودة) لما التبويب يتفتح
+  db.collection('settings').doc('profile').get().then(doc=>{
+    if(doc.exists && doc.data().heroImage){
+      preview.src = doc.data().heroImage;
+      preview.style.display = 'block';
+      status.textContent = 'دي صورة الشاعر الحالية — اختر صورة جديدة بس لو عايز تستبدلها.';
+    }
+  }).catch(()=>{});
+
+  fileInput.addEventListener('change', async ()=>{
+    const file = fileInput.files[0];
+    pendingImage = null;
+    if(!file) return;
+    if(file.size > 15 * 1024 * 1024){
+      status.textContent = 'الصورة كبيرة أوي، اختر صورة أصغر.';
+      return;
+    }
+    status.textContent = 'جاري تجهيز الصورة...';
+    try{
+      pendingImage = await compressImage(file);
+      preview.src = pendingImage;
+      preview.style.display = 'block';
+      const kb = Math.round(pendingImage.length * 0.75 / 1024);
+      status.textContent = `الصورة جاهزة (${kb} كيلوبايت تقريبًا).`;
+    }catch(e){
+      status.textContent = 'حصل خطأ في قراءة الصورة، جرّب صورة تانية.';
+    }
+  });
+
+  btn.addEventListener('click', async ()=>{
+    if(!pendingImage){
+      alert('اختار صورة جديدة الأول.');
+      return;
+    }
+    if(pendingImage.length > 900000){
+      alert('الصورة لسه كبيرة شوية بعد الضغط، جرّب صورة تانية.');
+      return;
+    }
+    btn.disabled = true;
+    try{
+      await db.collection('settings').doc('profile').set({ heroImage: pendingImage }, { merge: true });
+      status.textContent = 'تم حفظ صورة الشاعر ✅';
+      fileInput.value = '';
+      pendingImage = null;
+    }catch(e){
+      alert('حصل خطأ أثناء الحفظ، حاول تاني.');
+    }finally{
+      btn.disabled = false;
+    }
+  });
+}
+
 /* ===== الصور ===== */
 /* الصورة بتتضغط في المتصفح وتتحول لـ Base64 وتتخزن مباشرة في Firestore
    (مفيش استضافة خارجية، ومفيش حاجة اسمها Firebase Storage مدفوعة) */
@@ -648,6 +712,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   setupTabs();
   setupPoemForm();
   setupBulkImport();
+  setupHeroPhotoForm();
   setupPhotoForm();
   setupVideoForm();
   setupVideoUploadForm();
