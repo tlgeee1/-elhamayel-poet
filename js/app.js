@@ -100,16 +100,46 @@ async function loadPoems(){
   }
 }
 
-async function loadHeroPhoto(){
-  const frame = document.querySelector('.portrait-frame .inner');
-  if(!frame) return;
+async function loadProfileSettings(){
   try{
     const doc = await db.collection('settings').doc('profile').get();
-    if(doc.exists && doc.data().heroImage){
-      frame.innerHTML = `<img src="${escapeHtml(doc.data().heroImage)}" alt="محمد الحمايل" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+    if(!doc.exists) return;
+    const d = doc.data();
+
+    // صورة الشاعر
+    const frame = document.querySelector('.portrait-frame .inner');
+    if(frame && d.heroImage){
+      frame.innerHTML = `<img src="${escapeHtml(d.heroImage)}" alt="محمد الحمايل" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+    }
+
+    // نبذة "عن الشاعر"
+    const aboutBody = document.getElementById('aboutBody');
+    if(aboutBody && d.aboutText){
+      const paragraphs = d.aboutText.split(/\n+/).map(t=>t.trim()).filter(Boolean);
+      if(paragraphs.length){
+        aboutBody.innerHTML = paragraphs.map(t=>`<p>${escapeHtml(t)}</p>`).join('');
+      }
+    }
+
+    // بيانات التواصل
+    const emailLink = document.getElementById('contactEmailLink');
+    if(emailLink && d.contactEmail){
+      emailLink.href = `mailto:${d.contactEmail}`;
+    }
+    const phoneLink = document.getElementById('contactPhoneLink');
+    if(phoneLink && d.contactPhone){
+      const digits = d.contactPhone.replace(/[^0-9]/g, '');
+      phoneLink.href = `https://wa.me/${digits}`;
+      phoneLink.target = '_blank';
+      phoneLink.rel = 'noopener';
+      phoneLink.style.display = 'inline-block';
+    }
+    const contactNote = document.getElementById('contactNote');
+    if(contactNote && d.contactNote){
+      contactNote.textContent = d.contactNote;
     }
   }catch(e){
-    console.warn('Hero photo not loaded.', e);
+    console.warn('Profile settings not loaded.', e);
   }
 }
 
@@ -192,7 +222,7 @@ async function loadPress(){
 document.addEventListener('DOMContentLoaded', ()=>{
   setupDiwanModal();
   if(typeof db !== 'undefined'){
-    loadHeroPhoto();
+    loadProfileSettings();
     loadPoems();
     loadPhotos();
     loadVideos();
