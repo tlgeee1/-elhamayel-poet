@@ -403,7 +403,7 @@ function setupPhotoForm(){
 /* نوعين: (1) رابط يوتيوب عادي بيتحول لصيغة embed تلقائيًا
            (2) رفع مباشر من جهاز الشاعر لحساب Cloudinary مجاني (بدون سيرفر عندنا) */
 
-const CLOUDINARY_CLOUD_NAME = 'pjrnlxmh';
+const CLOUDINARY_CLOUD_NAME = 'qtsozhce';
 const CLOUDINARY_UPLOAD_PRESET = 'elhamayel_videos';
 
 function toEmbedUrl(link){
