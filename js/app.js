@@ -157,6 +157,38 @@ async function loadVideos(){
   }
 }
 
+async function loadPress(){
+  const listEl = document.getElementById('pressList');
+  if(!listEl) return;
+  try{
+    const snap = await db.collection('press').orderBy('createdAt','desc').get();
+    if(snap.empty) return; // keep static placeholder content
+    listEl.innerHTML = '';
+    snap.forEach(doc=>{
+      const p = doc.data();
+      const row = document.createElement('a');
+      row.className = 'poem-row';
+      row.href = p.url;
+      row.target = '_blank';
+      row.rel = 'noopener';
+      row.style.textDecoration = 'none';
+      row.style.color = 'inherit';
+      row.innerHTML = `
+        <div class="row-main">
+          <div>
+            <h4>${escapeHtml(p.title)}</h4>
+            <div class="snippet">${escapeHtml(p.source || '')}</div>
+          </div>
+        </div>
+        <div class="date">${formatDate(p.createdAt)}</div>
+      `;
+      listEl.appendChild(row);
+    });
+  }catch(e){
+    console.warn('Firestore press not loaded.', e);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   setupDiwanModal();
   if(typeof db !== 'undefined'){
@@ -164,5 +196,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     loadPoems();
     loadPhotos();
     loadVideos();
+    loadPress();
   }
 });
