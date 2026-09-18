@@ -257,12 +257,17 @@ async function loadPhotosAdmin(){
           <div class="snippet">${escapeHtml(ph.url)}</div>
         </div>
         <div class="item-actions">
-          <button class="btn-sm danger" data-id="${doc.id}">حذف</button>
+          <button class="btn-sm" data-action="edit">تعديل</button>
+          <button class="btn-sm danger" data-action="delete">حذف</button>
         </div>
       `;
-      row.querySelector('.btn-sm').addEventListener('click', async ()=>{
+      row.querySelector('[data-action="edit"]').addEventListener('click', ()=>{
+        startEditPhoto(doc.id, ph);
+      });
+      row.querySelector('[data-action="delete"]').addEventListener('click', async ()=>{
         if(!confirm('متأكد إنك عايز تحذف الصورة دي؟')) return;
         await db.collection('photos').doc(doc.id).delete();
+        if(editingPhotoId === doc.id) cancelEditPhoto();
         loadPhotosAdmin();
       });
       list.appendChild(row);
@@ -272,9 +277,32 @@ async function loadPhotosAdmin(){
   }
 }
 
+let editingPhotoId = null;
+
+function startEditPhoto(id, ph){
+  editingPhotoId = id;
+  document.getElementById('photoUrl').value = ph.url || '';
+  document.getElementById('photoCaption').value = ph.caption || '';
+  document.getElementById('addPhotoBtn').textContent = 'حفظ التعديل';
+  document.getElementById('cancelPhotoEditBtn').style.display = 'inline-block';
+  document.getElementById('photoUrl').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function cancelEditPhoto(){
+  editingPhotoId = null;
+  document.getElementById('photoUrl').value = '';
+  document.getElementById('photoCaption').value = '';
+  document.getElementById('addPhotoBtn').textContent = 'إضافة الصورة';
+  document.getElementById('cancelPhotoEditBtn').style.display = 'none';
+}
+
 function setupPhotoForm(){
   const btn = document.getElementById('addPhotoBtn');
+  const cancelBtn = document.getElementById('cancelPhotoEditBtn');
   if(!btn) return;
+
+  if(cancelBtn) cancelBtn.addEventListener('click', cancelEditPhoto);
+
   btn.addEventListener('click', async ()=>{
     const url = document.getElementById('photoUrl').value.trim();
     const caption = document.getElementById('photoCaption').value.trim();
@@ -284,14 +312,19 @@ function setupPhotoForm(){
     }
     btn.disabled = true;
     try{
-      await db.collection('photos').add({
-        url, caption, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      document.getElementById('photoUrl').value = '';
-      document.getElementById('photoCaption').value = '';
+      if(editingPhotoId){
+        await db.collection('photos').doc(editingPhotoId).update({ url, caption });
+        cancelEditPhoto();
+      }else{
+        await db.collection('photos').add({
+          url, caption, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        document.getElementById('photoUrl').value = '';
+        document.getElementById('photoCaption').value = '';
+      }
       loadPhotosAdmin();
     }catch(e){
-      alert('حصل خطأ أثناء الإضافة، حاول تاني.');
+      alert('حصل خطأ أثناء الحفظ، حاول تاني.');
     }finally{
       btn.disabled = false;
     }
@@ -320,12 +353,17 @@ async function loadVideosAdmin(){
           <div class="snippet">${escapeHtml(v.embedUrl)}</div>
         </div>
         <div class="item-actions">
-          <button class="btn-sm danger" data-id="${doc.id}">حذف</button>
+          <button class="btn-sm" data-action="edit">تعديل</button>
+          <button class="btn-sm danger" data-action="delete">حذف</button>
         </div>
       `;
-      row.querySelector('.btn-sm').addEventListener('click', async ()=>{
+      row.querySelector('[data-action="edit"]').addEventListener('click', ()=>{
+        startEditVideo(doc.id, v);
+      });
+      row.querySelector('[data-action="delete"]').addEventListener('click', async ()=>{
         if(!confirm('متأكد إنك عايز تحذف الفيديو ده؟')) return;
         await db.collection('videos').doc(doc.id).delete();
+        if(editingVideoId === doc.id) cancelEditVideo();
         loadVideosAdmin();
       });
       list.appendChild(row);
@@ -335,9 +373,32 @@ async function loadVideosAdmin(){
   }
 }
 
+let editingVideoId = null;
+
+function startEditVideo(id, v){
+  editingVideoId = id;
+  document.getElementById('videoTitle').value = v.title || '';
+  document.getElementById('videoUrl').value = v.embedUrl || '';
+  document.getElementById('addVideoBtn').textContent = 'حفظ التعديل';
+  document.getElementById('cancelVideoEditBtn').style.display = 'inline-block';
+  document.getElementById('videoTitle').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function cancelEditVideo(){
+  editingVideoId = null;
+  document.getElementById('videoTitle').value = '';
+  document.getElementById('videoUrl').value = '';
+  document.getElementById('addVideoBtn').textContent = 'إضافة الفيديو';
+  document.getElementById('cancelVideoEditBtn').style.display = 'none';
+}
+
 function setupVideoForm(){
   const btn = document.getElementById('addVideoBtn');
+  const cancelBtn = document.getElementById('cancelVideoEditBtn');
   if(!btn) return;
+
+  if(cancelBtn) cancelBtn.addEventListener('click', cancelEditVideo);
+
   btn.addEventListener('click', async ()=>{
     const title = document.getElementById('videoTitle').value.trim();
     const embedUrl = document.getElementById('videoUrl').value.trim();
@@ -347,14 +408,19 @@ function setupVideoForm(){
     }
     btn.disabled = true;
     try{
-      await db.collection('videos').add({
-        title, embedUrl, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      document.getElementById('videoTitle').value = '';
-      document.getElementById('videoUrl').value = '';
+      if(editingVideoId){
+        await db.collection('videos').doc(editingVideoId).update({ title, embedUrl });
+        cancelEditVideo();
+      }else{
+        await db.collection('videos').add({
+          title, embedUrl, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        document.getElementById('videoTitle').value = '';
+        document.getElementById('videoUrl').value = '';
+      }
       loadVideosAdmin();
     }catch(e){
-      alert('حصل خطأ أثناء الإضافة، حاول تاني.');
+      alert('حصل خطأ أثناء الحفظ، حاول تاني.');
     }finally{
       btn.disabled = false;
     }
