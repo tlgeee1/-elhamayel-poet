@@ -94,6 +94,7 @@ function loadAllAdminData(){
   loadPoemsAdmin();
   loadPhotosAdmin();
   loadVideosAdmin();
+  loadPressAdmin();
 }
 
 /* ===== القصائد ===== */
@@ -291,6 +292,106 @@ function setupHeroPhotoForm(){
       status.textContent = 'تم حفظ صورة الشاعر ✅';
       fileInput.value = '';
       pendingImage = null;
+    }catch(e){
+      alert('حصل خطأ أثناء الحفظ، حاول تاني.');
+    }finally{
+      btn.disabled = false;
+    }
+  });
+}
+
+/* ===== الصحافة ===== */
+
+async function loadPressAdmin(){
+  const list = document.getElementById('pressAdminList');
+  if(!list) return;
+  list.innerHTML = '';
+  try{
+    const snap = await db.collection('press').orderBy('createdAt','desc').get();
+    if(snap.empty){
+      list.innerHTML = '<p class="form-note">لسه مفيش مقالات مضافة.</p>';
+      return;
+    }
+    snap.forEach(doc=>{
+      const p = doc.data();
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <div>
+          <h4>${escapeHtml(p.title || 'بدون عنوان')}</h4>
+          <div class="snippet">${escapeHtml(p.source || '')} — ${escapeHtml(p.url)}</div>
+        </div>
+        <div class="item-actions">
+          <button class="btn-sm" data-action="edit">تعديل</button>
+          <button class="btn-sm danger" data-action="delete">حذف</button>
+        </div>
+      `;
+      row.querySelector('[data-action="edit"]').addEventListener('click', ()=>{
+        startEditPress(doc.id, p);
+      });
+      row.querySelector('[data-action="delete"]').addEventListener('click', async ()=>{
+        if(!confirm('متأكد إنك عايز تحذف المقال ده؟')) return;
+        await db.collection('press').doc(doc.id).delete();
+        if(editingPressId === doc.id) cancelEditPress();
+        loadPressAdmin();
+      });
+      list.appendChild(row);
+    });
+  }catch(e){
+    list.innerHTML = '<p class="form-note">حصل خطأ في تحميل المقالات.</p>';
+  }
+}
+
+let editingPressId = null;
+
+function startEditPress(id, p){
+  editingPressId = id;
+  document.getElementById('pressTitle').value = p.title || '';
+  document.getElementById('pressSource').value = p.source || '';
+  document.getElementById('pressUrl').value = p.url || '';
+  document.getElementById('addPressBtn').textContent = 'حفظ التعديل';
+  document.getElementById('cancelPressEditBtn').style.display = 'inline-block';
+  document.getElementById('pressTitle').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function cancelEditPress(){
+  editingPressId = null;
+  document.getElementById('pressTitle').value = '';
+  document.getElementById('pressSource').value = '';
+  document.getElementById('pressUrl').value = '';
+  document.getElementById('addPressBtn').textContent = 'إضافة المقال';
+  document.getElementById('cancelPressEditBtn').style.display = 'none';
+}
+
+function setupPressForm(){
+  const btn = document.getElementById('addPressBtn');
+  const cancelBtn = document.getElementById('cancelPressEditBtn');
+  if(!btn) return;
+
+  if(cancelBtn) cancelBtn.addEventListener('click', cancelEditPress);
+
+  btn.addEventListener('click', async ()=>{
+    const title = document.getElementById('pressTitle').value.trim();
+    const source = document.getElementById('pressSource').value.trim();
+    const url = document.getElementById('pressUrl').value.trim();
+    if(!title || !url){
+      alert('اكتب عنوان المقال والرابط الأول.');
+      return;
+    }
+    btn.disabled = true;
+    try{
+      if(editingPressId){
+        await db.collection('press').doc(editingPressId).update({ title, source, url });
+        cancelEditPress();
+      }else{
+        await db.collection('press').add({
+          title, source, url, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        document.getElementById('pressTitle').value = '';
+        document.getElementById('pressSource').value = '';
+        document.getElementById('pressUrl').value = '';
+      }
+      loadPressAdmin();
     }catch(e){
       alert('حصل خطأ أثناء الحفظ، حاول تاني.');
     }finally{
@@ -716,4 +817,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   setupPhotoForm();
   setupVideoForm();
   setupVideoUploadForm();
+  setupPressForm();
 });
