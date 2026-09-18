@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة التحكم — محمد الحمايل</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="admin-shell">
+
+  <!-- ===== شاشة الدخول ===== -->
+  <div id="loginScreen">
+    <div class="login-box">
+      <h1>لوحة التحكم</h1>
+      <p>سجّل الدخول لإدارة القصائد والصور والفيديوهات.</p>
+      <div class="form-error" id="loginError"></div>
+      <div class="field">
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="loginEmail" placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label>كلمة المرور</label>
+        <input type="password" id="loginPassword" placeholder="••••••••">
+      </div>
+      <button class="btn-wine" style="width:100%;border:none;cursor:pointer;" id="loginBtn">دخول</button>
+      <p class="form-note">الحساب بيتعمل مرة واحدة من Firebase Console — راجع README.md.</p>
+    </div>
+  </div>
+
+  <!-- ===== لوحة التحكم (بعد الدخول) ===== -->
+  <div id="dashboard" style="display:none;">
+    <div class="admin-nav">
+      <div class="brand">لوحة التحكم</div>
+      <div style="display:flex;align-items:center;gap:20px;">
+        <a href="index.html" target="_blank">مشاهدة الموقع</a>
+        <a href="#" id="logoutBtn">تسجيل الخروج</a>
+      </div>
+    </div>
+
+    <div class="admin-main">
+      <div class="admin-toolbar">
+        <h1>مرحبًا بك</h1>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="poems">القصائد</button>
+        <button class="tab-btn" data-tab="photos">الصور</button>
+        <button class="tab-btn" data-tab="videos">الفيديوهات</button>
+      </div>
+
+      <!-- ===== تبويب القصائد ===== -->
+      <div class="panel active" id="panel-poems">
+        <div class="admin-card">
+          <div class="field"><label>عنوان القصيدة</label><input type="text" id="poemTitle"></div>
+          <div class="field"><label>نص القصيدة</label><textarea id="poemText" rows="8"></textarea></div>
+          <button class="btn-wine" style="border:none;cursor:pointer;" id="addPoemBtn">إضافة القصيدة</button>
+        </div>
+        <div id="poemsAdminList"></div>
+      </div>
+
+      <!-- ===== تبويب الصور ===== -->
+      <div class="panel" id="panel-photos">
+        <div class="admin-card">
+          <div class="field"><label>رابط الصورة (URL)</label><input type="text" id="photoUrl" placeholder="https://..."></div>
+          <div class="field"><label>وصف مختصر (اختياري)</label><input type="text" id="photoCaption"></div>
+          <button class="btn-wine" style="border:none;cursor:pointer;" id="addPhotoBtn">إضافة الصورة</button>
+          <p class="form-note">لرفع صورة من جهازك: ارفعها على أي مكان استضافة صور (مثل imgbb.com) وحط الرابط هنا.</p>
+        </div>
+        <div id="photosAdminList"></div>
+      </div>
+
+      <!-- ===== تبويب الفيديوهات ===== -->
+      <div class="panel" id="panel-videos">
+        <div class="admin-card">
+          <div class="field"><label>عنوان الفيديو</label><input type="text" id="videoTitle"></div>
+          <div class="field"><label>رابط التضمين (YouTube embed URL)</label><input type="text" id="videoUrl" placeholder="https://www.youtube.com/embed/..."></div>
+          <button class="btn-wine" style="border:none;cursor:pointer;" id="addVideoBtn">إضافة الفيديو</button>
+          <p class="form-note">من يوتيوب: زرار "مشاركة" ← "تضمين" ← انسخ الرابط اللي جوه src.</p>
+        </div>
+        <div id="videosAdminList"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
