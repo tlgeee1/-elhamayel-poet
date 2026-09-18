@@ -51,6 +51,7 @@
         <button class="tab-btn active" data-tab="poems">القصائد</button>
         <button class="tab-btn" data-tab="photos">الصور</button>
         <button class="tab-btn" data-tab="videos">الفيديوهات</button>
+        <button class="tab-btn" data-tab="press">الصحافة</button>
       </div>
  
       <!-- ===== تبويب القصائد ===== -->
@@ -144,6 +145,18 @@
         </div>
  
         <div id="videosAdminList"></div>
+      </div>
+ 
+      <!-- ===== تبويب الصحافة ===== -->
+      <div class="panel" id="panel-press">
+        <div class="admin-card">
+          <div class="field"><label>عنوان المقال / الخبر</label><input type="text" id="pressTitle"></div>
+          <div class="field"><label>اسم الموقع أو الجريدة (اختياري)</label><input type="text" id="pressSource" placeholder="مثال: اليوم السابع"></div>
+          <div class="field"><label>رابط المقال</label><input type="text" id="pressUrl" placeholder="https://..."></div>
+          <button class="btn-wine" style="border:none;cursor:pointer;" id="addPressBtn">إضافة المقال</button>
+          <button class="btn-sm" style="display:none;margin-inline-start:10px;" id="cancelPressEditBtn">إلغاء التعديل</button>
+        </div>
+        <div id="pressAdminList"></div>
       </div>
  
     </div>
