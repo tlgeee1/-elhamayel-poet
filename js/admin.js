@@ -300,6 +300,46 @@ function setupHeroPhotoForm(){
   });
 }
 
+/* ===== عن الشاعر والتواصل ===== */
+/* بتتخزن في نفس مستند settings/profile جنب صورة الشاعر */
+
+function setupProfileForm(){
+  const btn = document.getElementById('saveProfileBtn');
+  const status = document.getElementById('profileStatus');
+  if(!btn) return;
+
+  // اعرض القيم الحالية لما التبويب يتفتح
+  db.collection('settings').doc('profile').get().then(doc=>{
+    if(!doc.exists) return;
+    const d = doc.data();
+    if(d.aboutText) document.getElementById('aboutText').value = d.aboutText;
+    if(d.contactEmail) document.getElementById('contactEmail').value = d.contactEmail;
+    if(d.contactPhone) document.getElementById('contactPhone').value = d.contactPhone;
+    if(d.contactNote) document.getElementById('contactNote').value = d.contactNote;
+  }).catch(()=>{});
+
+  btn.addEventListener('click', async ()=>{
+    const aboutText = document.getElementById('aboutText').value.trim();
+    const contactEmail = document.getElementById('contactEmail').value.trim();
+    const contactPhone = document.getElementById('contactPhone').value.trim();
+    const contactNote = document.getElementById('contactNote').value.trim();
+
+    btn.disabled = true;
+    status.textContent = 'جاري الحفظ...';
+    try{
+      await db.collection('settings').doc('profile').set({
+        aboutText, contactEmail, contactPhone, contactNote
+      }, { merge: true });
+      status.textContent = 'تم الحفظ ✅';
+    }catch(e){
+      status.textContent = '';
+      alert('حصل خطأ أثناء الحفظ، حاول تاني.');
+    }finally{
+      btn.disabled = false;
+    }
+  });
+}
+
 /* ===== الصحافة ===== */
 
 async function loadPressAdmin(){
@@ -818,4 +858,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   setupVideoForm();
   setupVideoUploadForm();
   setupPressForm();
+  setupProfileForm();
 });
