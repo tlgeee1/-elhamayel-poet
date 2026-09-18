@@ -73,25 +73,30 @@
           <button class="btn-wine" style="border:none;cursor:pointer;" id="addPoemBtn">إضافة القصيدة</button>
           <button class="btn-sm" style="display:none;margin-inline-start:10px;" id="cancelEditBtn">إلغاء التعديل</button>
         </div>
-
+ 
         <div class="admin-card" id="bulkImportCard" style="display:none;">
           <h4 style="font-family:'Amiri', serif;font-size:18px;margin-bottom:8px;">استيراد ديوان "قالوا فى الأمثال" دفعة واحدة</h4>
           <p class="form-note" style="margin-top:0;">هيضيف كل الأمثال والقصائد اللي جوه الديوان (<span id="bulkCount"></span> قصيدة) لأرشيف الموقع. آمن تدوس عليه أكتر من مرة، مش هيكرر أي قصيدة موجودة بالفعل.</p>
           <button class="btn-outline" style="cursor:pointer;background:none;font-family:inherit;" id="bulkImportBtn">استيراد الديوان الآن</button>
           <p class="form-note" id="bulkImportStatus"></p>
         </div>
-
+ 
         <div id="poemsAdminList"></div>
       </div>
  
       <!-- ===== تبويب الصور ===== -->
       <div class="panel" id="panel-photos">
         <div class="admin-card">
-          <div class="field"><label>رابط الصورة (URL)</label><input type="text" id="photoUrl" placeholder="https://..."></div>
+          <div class="field">
+            <label>اختر صورة من جهازك (المعرض أو الكاميرا)</label>
+            <input type="file" id="photoFile" accept="image/*">
+          </div>
+          <img id="photoPreview" style="display:none;max-width:220px;border-radius:10px;margin:6px 0 12px;border:1px solid rgba(255,255,255,.15)" alt="معاينة الصورة">
+          <input type="hidden" id="photoExistingUrl" value="">
           <div class="field"><label>وصف مختصر (اختياري)</label><input type="text" id="photoCaption"></div>
+          <p class="form-note" id="photoStatus"></p>
           <button class="btn-wine" style="border:none;cursor:pointer;" id="addPhotoBtn">إضافة الصورة</button>
           <button class="btn-sm" style="display:none;margin-inline-start:10px;" id="cancelPhotoEditBtn">إلغاء التعديل</button>
-          <p class="form-note">لرفع صورة من جهازك: ارفعها على أي مكان استضافة صور (مثل imgbb.com) وحط الرابط هنا.</p>
         </div>
         <div id="photosAdminList"></div>
       </div>
@@ -100,10 +105,13 @@
       <div class="panel" id="panel-videos">
         <div class="admin-card">
           <div class="field"><label>عنوان الفيديو</label><input type="text" id="videoTitle"></div>
-          <div class="field"><label>رابط التضمين (YouTube embed URL)</label><input type="text" id="videoUrl" placeholder="https://www.youtube.com/embed/..."></div>
+          <div class="field">
+            <label>رابط الفيديو (من يوتيوب)</label>
+            <input type="text" id="videoUrl" placeholder="الصق رابط الفيديو من يوتيوب هنا زي ما هو">
+          </div>
           <button class="btn-wine" style="border:none;cursor:pointer;" id="addVideoBtn">إضافة الفيديو</button>
           <button class="btn-sm" style="display:none;margin-inline-start:10px;" id="cancelVideoEditBtn">إلغاء التعديل</button>
-          <p class="form-note">من يوتيوب: زرار "مشاركة" ← "تضمين" ← انسخ الرابط اللي جوه src.</p>
+          <p class="form-note">انسخ رابط الفيديو من يوتيوب (من خانة العنوان أو زرار "مشاركة") والزقه زي ما هو — مفيش داعي لأي تعديل عليه.</p>
         </div>
         <div id="videosAdminList"></div>
       </div>
