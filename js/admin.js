@@ -118,12 +118,17 @@ async function loadPoemsAdmin(){
           <div class="snippet">${escapeHtml((p.text||'').slice(0,90))}${(p.text||'').length>90?'…':''}</div>
         </div>
         <div class="item-actions">
-          <button class="btn-sm danger" data-id="${doc.id}">حذف</button>
+          <button class="btn-sm" data-action="edit">تعديل</button>
+          <button class="btn-sm danger" data-action="delete">حذف</button>
         </div>
       `;
-      row.querySelector('.btn-sm').addEventListener('click', async ()=>{
+      row.querySelector('[data-action="edit"]').addEventListener('click', ()=>{
+        startEditPoem(doc.id, p);
+      });
+      row.querySelector('[data-action="delete"]').addEventListener('click', async ()=>{
         if(!confirm('متأكد إنك عايز تحذف القصيدة دي؟')) return;
         await db.collection('poems').doc(doc.id).delete();
+        if(editingPoemId === doc.id) cancelEditPoem();
         loadPoemsAdmin();
       });
       list.appendChild(row);
@@ -133,9 +138,34 @@ async function loadPoemsAdmin(){
   }
 }
 
+let editingPoemId = null;
+
+function startEditPoem(id, p){
+  editingPoemId = id;
+  document.getElementById('poemTitle').value = p.title || '';
+  document.getElementById('poemText').value = p.text || '';
+  document.getElementById('poemBg').value = p.bg || '';
+  document.getElementById('addPoemBtn').textContent = 'حفظ التعديل';
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  document.getElementById('poemTitle').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function cancelEditPoem(){
+  editingPoemId = null;
+  document.getElementById('poemTitle').value = '';
+  document.getElementById('poemText').value = '';
+  document.getElementById('poemBg').value = '';
+  document.getElementById('addPoemBtn').textContent = 'إضافة القصيدة';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+}
+
 function setupPoemForm(){
   const btn = document.getElementById('addPoemBtn');
+  const cancelBtn = document.getElementById('cancelEditBtn');
   if(!btn) return;
+
+  if(cancelBtn) cancelBtn.addEventListener('click', cancelEditPoem);
+
   btn.addEventListener('click', async ()=>{
     const title = document.getElementById('poemTitle').value.trim();
     const text = document.getElementById('poemText').value.trim();
@@ -146,15 +176,23 @@ function setupPoemForm(){
     }
     btn.disabled = true;
     try{
-      const data = { title, text, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
-      if(bg) data.bg = bg;
-      await db.collection('poems').add(data);
-      document.getElementById('poemTitle').value = '';
-      document.getElementById('poemText').value = '';
-      document.getElementById('poemBg').value = '';
+      if(editingPoemId){
+        const update = { title, text };
+        if(bg) update.bg = bg;
+        else update.bg = firebase.firestore.FieldValue.delete();
+        await db.collection('poems').doc(editingPoemId).update(update);
+        cancelEditPoem();
+      }else{
+        const data = { title, text, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if(bg) data.bg = bg;
+        await db.collection('poems').add(data);
+        document.getElementById('poemTitle').value = '';
+        document.getElementById('poemText').value = '';
+        document.getElementById('poemBg').value = '';
+      }
       loadPoemsAdmin();
     }catch(e){
-      alert('حصل خطأ أثناء الإضافة، حاول تاني.');
+      alert('حصل خطأ أثناء الحفظ، حاول تاني.');
     }finally{
       btn.disabled = false;
     }
