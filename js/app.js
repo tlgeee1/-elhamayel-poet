@@ -4,6 +4,8 @@
 // الموجود بالفعل في index.html من غير ما يمسحه
 // ============================================================
 
+const DIWAN_BACKGROUNDS = ['bg-wine','bg-gold','bg-night','bg-parchment','bg-royal','bg-rose'];
+
 function escapeHtml(str){
   return (str || "").replace(/[&<>"']/g, m => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
@@ -16,6 +18,41 @@ function formatDate(ts){
     const d = ts.toDate ? ts.toDate() : new Date(ts);
     return d.toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
   }catch(e){ return ""; }
+}
+
+// لو القصيدة معندهاش خلفية مختارة من لوحة التحكم، بنولّد واحدة ثابتة
+// بناءً على العنوان (نفس القصيدة هتاخد نفس الخلفية دايمًا).
+function pickBackground(p){
+  if(p.bg && DIWAN_BACKGROUNDS.includes(p.bg)) return p.bg;
+  const s = p.title || p.text || '';
+  let hash = 0;
+  for(let i=0;i<s.length;i++){ hash = (hash*31 + s.charCodeAt(i)) >>> 0; }
+  return DIWAN_BACKGROUNDS[hash % DIWAN_BACKGROUNDS.length];
+}
+
+function openDiwan(p){
+  const overlay = document.getElementById('diwanOverlay');
+  const card = document.getElementById('diwanCard');
+  if(!overlay || !card) return;
+  DIWAN_BACKGROUNDS.forEach(c => card.classList.remove(c));
+  card.classList.add(pickBackground(p));
+  document.getElementById('diwanTitle').textContent = p.title || '';
+  document.getElementById('diwanVerse').textContent = p.text || '';
+  document.getElementById('diwanMeta').textContent = formatDate(p.createdAt);
+  overlay.classList.add('open');
+}
+
+function closeDiwan(){
+  const overlay = document.getElementById('diwanOverlay');
+  if(overlay) overlay.classList.remove('open');
+}
+
+function setupDiwanModal(){
+  const overlay = document.getElementById('diwanOverlay');
+  const closeBtn = document.getElementById('diwanClose');
+  if(closeBtn) closeBtn.addEventListener('click', closeDiwan);
+  if(overlay) overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeDiwan(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeDiwan(); });
 }
 
 async function loadPoems(){
@@ -42,12 +79,16 @@ async function loadPoems(){
       const row = document.createElement('div');
       row.className = 'poem-row';
       row.innerHTML = `
-        <div>
-          <h4>${escapeHtml(p.title)}</h4>
-          <div class="snippet">${escapeHtml((p.text||'').slice(0,80))}${(p.text||'').length>80?'…':''}</div>
+        <div class="row-main">
+          <span class="bg-dot ${pickBackground(p)}"></span>
+          <div>
+            <h4>${escapeHtml(p.title)}</h4>
+            <div class="snippet">${escapeHtml((p.text||'').slice(0,80))}${(p.text||'').length>80?'…':''}</div>
+          </div>
         </div>
         <div class="date">${formatDate(p.createdAt)}</div>
       `;
+      row.addEventListener('click', ()=> openDiwan(p));
       listEl.appendChild(row);
     });
 
@@ -101,6 +142,7 @@ async function loadVideos(){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
+  setupDiwanModal();
   if(typeof db !== 'undefined'){
     loadPoems();
     loadPhotos();

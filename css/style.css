@@ -213,6 +213,79 @@ section{padding:92px 0;}
 footer{padding:30px 0;background:var(--ink);color:#8C7A5C;font-size:13px;}
 footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;}
 
+/* ===== POEM ROW BG SWATCH ===== */
+.poem-row{position:relative;}
+.poem-row .row-main{display:flex;align-items:center;gap:16px;}
+.bg-dot{width:10px;height:10px;flex-shrink:0;border:1px solid rgba(0,0,0,0.2);}
+
+/* ===== DIWAN MODAL ===== */
+.diwan-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(20,14,8,0.72);
+  display:none;align-items:center;justify-content:center;
+  padding:28px;
+}
+.diwan-overlay.open{display:flex;}
+.diwan-card{
+  position:relative;width:100%;max-width:680px;max-height:86vh;overflow-y:auto;
+  padding:64px 52px;box-shadow:0 40px 90px -30px rgba(0,0,0,0.6);
+  color:#F4E9D2;
+}
+.diwan-close{
+  position:absolute;top:18px;left:18px;
+  width:36px;height:36px;border:1px solid rgba(244,233,210,0.4);
+  background:rgba(0,0,0,0.15);color:#F4E9D2;font-size:18px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-family:inherit;line-height:1;
+}
+.diwan-close:hover{background:rgba(0,0,0,0.3);}
+.diwan-card h3{font-size:30px;margin-bottom:26px;font-family:'Amiri', serif;}
+.diwan-card .verse{
+  font-family:'Amiri', serif;font-size:22px;line-height:2.2;white-space:pre-line;
+}
+.diwan-card .meta{
+  margin-top:32px;padding-top:18px;border-top:1px solid rgba(244,233,210,0.25);
+  font-size:13.5px;opacity:0.85;
+}
+
+/* ---- background presets: professional, matched to the site's palette ---- */
+.bg-wine{background:
+  radial-gradient(circle at 15% 20%, rgba(255,255,255,0.08), transparent 45%),
+  repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 26px),
+  linear-gradient(160deg, #5C2020, #3A1414 70%);
+}
+.bg-gold{background:
+  radial-gradient(circle at 85% 15%, rgba(255,255,255,0.12), transparent 50%),
+  repeating-linear-gradient(135deg, rgba(0,0,0,0.03) 0 2px, transparent 2px 26px),
+  linear-gradient(160deg, #8B6F3E, #4E3C1F 75%);
+}
+.bg-night{background:
+  radial-gradient(1.5px 1.5px at 20% 30%, rgba(255,255,255,0.5), transparent),
+  radial-gradient(1.5px 1.5px at 70% 60%, rgba(255,255,255,0.35), transparent),
+  radial-gradient(1.5px 1.5px at 40% 80%, rgba(255,255,255,0.4), transparent),
+  radial-gradient(1.5px 1.5px at 85% 25%, rgba(255,255,255,0.3), transparent),
+  linear-gradient(165deg, #1A1F2E, #0C0E16 75%);
+}
+.bg-parchment{
+  color:#2B2119;
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 37px, rgba(43,33,25,0.05) 38px),
+    radial-gradient(ellipse at top left, rgba(255,255,255,0.25), transparent 60%),
+    linear-gradient(160deg, #E8DCC3, #D8C293 85%);
+}
+.bg-parchment .diwan-close{border-color:rgba(43,33,25,0.3);color:#2B2119;background:rgba(255,255,255,0.25);}
+.bg-parchment .diwan-close:hover{background:rgba(255,255,255,0.45);}
+.bg-parchment .meta{border-top-color:rgba(43,33,25,0.2);}
+.bg-royal{background:
+  radial-gradient(circle at 80% 80%, rgba(255,255,255,0.08), transparent 45%),
+  repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 2px, transparent 2px 26px),
+  linear-gradient(160deg, #1E3A4C, #0F1E28 75%);
+}
+.bg-rose{background:
+  radial-gradient(circle at 20% 80%, rgba(255,255,255,0.15), transparent 50%),
+  linear-gradient(160deg, #8C4B54, #5A2C33 75%);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width:860px){
   .hero-inner{grid-template-columns:1fr;}
@@ -222,6 +295,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;
   .videos-grid{grid-template-columns:1fr;}
   .poem-plate{padding:34px 26px;}
   .poem-row{grid-template-columns:1fr;gap:6px;}
+  .diwan-card{padding:44px 26px;}
 }
 
 /* ===== ADMIN SHARED ===== */
@@ -243,7 +317,7 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;
 .login-box p{color:var(--ink-soft);font-size:14px;margin-bottom:28px;}
 .field{margin-bottom:18px;}
 .field label{display:block;font-size:13.5px;color:var(--ink-soft);margin-bottom:7px;}
-.field input, .field textarea{
+.field input, .field textarea, .field select{
   width:100%;padding:12px 14px;border:1px solid var(--line);
   background:var(--paper);color:var(--ink);font-family:inherit;font-size:15px;
 }
