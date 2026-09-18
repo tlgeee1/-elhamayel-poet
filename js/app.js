@@ -100,6 +100,19 @@ async function loadPoems(){
   }
 }
 
+async function loadHeroPhoto(){
+  const frame = document.querySelector('.portrait-frame .inner');
+  if(!frame) return;
+  try{
+    const doc = await db.collection('settings').doc('profile').get();
+    if(doc.exists && doc.data().heroImage){
+      frame.innerHTML = `<img src="${escapeHtml(doc.data().heroImage)}" alt="محمد الحمايل" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+    }
+  }catch(e){
+    console.warn('Hero photo not loaded.', e);
+  }
+}
+
 async function loadPhotos(){
   const grid = document.getElementById('galleryGrid');
   if(!grid) return;
@@ -147,6 +160,7 @@ async function loadVideos(){
 document.addEventListener('DOMContentLoaded', ()=>{
   setupDiwanModal();
   if(typeof db !== 'undefined'){
+    loadHeroPhoto();
     loadPoems();
     loadPhotos();
     loadVideos();
