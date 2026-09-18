@@ -236,6 +236,29 @@ function setupBulkImport(){
 }
 
 /* ===== الصور ===== */
+/* الصورة بتتضغط في المتصفح وتتحول لـ Base64 وتتخزن مباشرة في Firestore
+   (مفيش استضافة خارجية، ومفيش حاجة اسمها Firebase Storage مدفوعة) */
+
+function compressImage(file, maxWidth = 1200, quality = 0.75){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = ()=>reject(new Error('تعذّرت قراءة الصورة'));
+      img.src = e.target.result;
+    };
+    reader.onerror = ()=>reject(new Error('تعذّرت قراءة الملف'));
+    reader.readAsDataURL(file);
+  });
+}
 
 async function loadPhotosAdmin(){
   const list = document.getElementById('photosAdminList');
@@ -252,9 +275,9 @@ async function loadPhotosAdmin(){
       const row = document.createElement('div');
       row.className = 'item-row';
       row.innerHTML = `
-        <div>
-          <h4>${escapeHtml(ph.caption || 'بدون وصف')}</h4>
-          <div class="snippet">${escapeHtml(ph.url)}</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <img src="${escapeHtml(ph.url)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+          <h4 style="margin:0;">${escapeHtml(ph.caption || 'بدون وصف')}</h4>
         </div>
         <div class="item-actions">
           <button class="btn-sm" data-action="edit">تعديل</button>
@@ -281,17 +304,24 @@ let editingPhotoId = null;
 
 function startEditPhoto(id, ph){
   editingPhotoId = id;
-  document.getElementById('photoUrl').value = ph.url || '';
+  document.getElementById('photoExistingUrl').value = ph.url || '';
   document.getElementById('photoCaption').value = ph.caption || '';
+  document.getElementById('photoFile').value = '';
+  const preview = document.getElementById('photoPreview');
+  if(ph.url){ preview.src = ph.url; preview.style.display = 'block'; }
+  document.getElementById('photoStatus').textContent = 'الصورة الحالية معروضة فوق — اختر صورة جديدة بس لو عايز تستبدلها.';
   document.getElementById('addPhotoBtn').textContent = 'حفظ التعديل';
   document.getElementById('cancelPhotoEditBtn').style.display = 'inline-block';
-  document.getElementById('photoUrl').scrollIntoView({behavior:'smooth', block:'center'});
+  document.getElementById('photoFile').scrollIntoView({behavior:'smooth', block:'center'});
 }
 
 function cancelEditPhoto(){
   editingPhotoId = null;
-  document.getElementById('photoUrl').value = '';
+  document.getElementById('photoFile').value = '';
+  document.getElementById('photoExistingUrl').value = '';
   document.getElementById('photoCaption').value = '';
+  document.getElementById('photoStatus').textContent = '';
+  document.getElementById('photoPreview').style.display = 'none';
   document.getElementById('addPhotoBtn').textContent = 'إضافة الصورة';
   document.getElementById('cancelPhotoEditBtn').style.display = 'none';
 }
@@ -299,28 +329,66 @@ function cancelEditPhoto(){
 function setupPhotoForm(){
   const btn = document.getElementById('addPhotoBtn');
   const cancelBtn = document.getElementById('cancelPhotoEditBtn');
+  const fileInput = document.getElementById('photoFile');
+  const preview = document.getElementById('photoPreview');
+  const status = document.getElementById('photoStatus');
   if(!btn) return;
 
-  if(cancelBtn) cancelBtn.addEventListener('click', cancelEditPhoto);
+  let pendingImage = null; // صورة جديدة اتضغطت وجاهزة للحفظ (لو اتختارت)
 
-  btn.addEventListener('click', async ()=>{
-    const url = document.getElementById('photoUrl').value.trim();
-    const caption = document.getElementById('photoCaption').value.trim();
-    if(!url){
-      alert('حط رابط الصورة الأول.');
+  fileInput.addEventListener('change', async ()=>{
+    const file = fileInput.files[0];
+    pendingImage = null;
+    if(!file) return;
+    if(file.size > 15 * 1024 * 1024){
+      status.textContent = 'الصورة كبيرة أوي، اختر صورة أصغر.';
       return;
     }
+    status.textContent = 'جاري تجهيز الصورة...';
+    try{
+      pendingImage = await compressImage(file);
+      preview.src = pendingImage;
+      preview.style.display = 'block';
+      const kb = Math.round(pendingImage.length * 0.75 / 1024);
+      status.textContent = `الصورة جاهزة (${kb} كيلوبايت تقريبًا).`;
+    }catch(e){
+      status.textContent = 'حصل خطأ في قراءة الصورة، جرّب صورة تانية.';
+    }
+  });
+
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=>{
+    pendingImage = null;
+    cancelEditPhoto();
+  });
+
+  btn.addEventListener('click', async ()=>{
+    const caption = document.getElementById('photoCaption').value.trim();
+    const existingUrl = document.getElementById('photoExistingUrl').value;
+    const finalUrl = pendingImage || existingUrl;
+
+    if(!finalUrl){
+      alert('اختار صورة الأول.');
+      return;
+    }
+    if(finalUrl.length > 900000){
+      alert('الصورة لسه كبيرة شوية بعد الضغط، جرّب صورة تانية أو صورة بدقة أقل.');
+      return;
+    }
+
     btn.disabled = true;
     try{
       if(editingPhotoId){
-        await db.collection('photos').doc(editingPhotoId).update({ url, caption });
+        await db.collection('photos').doc(editingPhotoId).update({ url: finalUrl, caption });
         cancelEditPhoto();
       }else{
         await db.collection('photos').add({
-          url, caption, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          url: finalUrl, caption, createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        document.getElementById('photoUrl').value = '';
+        fileInput.value = '';
         document.getElementById('photoCaption').value = '';
+        preview.style.display = 'none';
+        status.textContent = '';
+        pendingImage = null;
       }
       loadPhotosAdmin();
     }catch(e){
@@ -332,6 +400,15 @@ function setupPhotoForm(){
 }
 
 /* ===== الفيديوهات ===== */
+/* الشاعر بيلزق أي رابط يوتيوب زي ما هو (مشاهدة عادية / مختصر / تضمين)
+   والكود بيحوّله لصيغة embed تلقائيًا */
+
+function toEmbedUrl(link){
+  if(!link) return null;
+  const m = link.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/);
+  if(m) return `https://www.youtube.com/embed/${m[1]}`;
+  return null;
+}
 
 async function loadVideosAdmin(){
   const list = document.getElementById('videosAdminList');
@@ -401,9 +478,14 @@ function setupVideoForm(){
 
   btn.addEventListener('click', async ()=>{
     const title = document.getElementById('videoTitle').value.trim();
-    const embedUrl = document.getElementById('videoUrl').value.trim();
+    const rawLink = document.getElementById('videoUrl').value.trim();
+    if(!rawLink){
+      alert('حط رابط الفيديو الأول.');
+      return;
+    }
+    const embedUrl = toEmbedUrl(rawLink);
     if(!embedUrl){
-      alert('حط رابط التضمين الأول.');
+      alert('الرابط ده مش لينك يوتيوب معروف، جرّب تنسخه تاني من يوتيوب.');
       return;
     }
     btn.disabled = true;
