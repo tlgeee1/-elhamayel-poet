@@ -324,6 +324,86 @@ function setupBulkImport(){
   });
 }
 
+/* ===== استيراد جماعي عن طريق لصق نص ===== */
+// بيقسّم النص الملصوق لقصايد بناءً على سطر لوحده فيه === بين كل قصيدة والتانية.
+// أول سطر غير فاضي بعد كل فاصل = العنوان، والباقي = نص القصيدة.
+function parsePastedDiwan(raw){
+  const blocks = raw
+    .replace(/\r\n/g, '\n')
+    .split(/^[ \t]*={3,}[ \t]*$/m);
+  const poems = [];
+  blocks.forEach(block=>{
+    const lines = block.split('\n').map(l=>l.trim());
+    let i = 0;
+    while(i < lines.length && lines[i] === '') i++;
+    if(i >= lines.length) return;
+    const title = lines[i];
+    const bodyLines = lines.slice(i+1);
+    while(bodyLines.length && bodyLines[0] === '') bodyLines.shift();
+    while(bodyLines.length && bodyLines[bodyLines.length-1] === '') bodyLines.pop();
+    const text = bodyLines.join('\n').trim();
+    if(title && text) poems.push({ title, text });
+  });
+  return poems;
+}
+
+function setupPasteImport(){
+  const btn = document.getElementById('pasteImportBtn');
+  const diwanInput = document.getElementById('pasteImportDiwan');
+  const textArea = document.getElementById('pasteImportText');
+  const preview = document.getElementById('pasteImportPreview');
+  const status = document.getElementById('pasteImportStatus');
+  if(!btn) return;
+
+  textArea.addEventListener('input', ()=>{
+    const poems = parsePastedDiwan(textArea.value);
+    preview.textContent = poems.length
+      ? `هيتم التعرف على ${poems.length} قصيدة${poems.length===1?'':''}: ${poems.slice(0,3).map(p=>p.title).join('، ')}${poems.length>3?' ...':''}`
+      : '';
+  });
+
+  btn.addEventListener('click', async ()=>{
+    const diwan = diwanInput.value.trim();
+    const poems = parsePastedDiwan(textArea.value);
+    if(!diwan){
+      alert('اكتب اسم الديوان الأول.');
+      return;
+    }
+    if(poems.length === 0){
+      alert('محدّش لقيت قصائد في النص. تأكد إنك حاطط سطر === لوحده بين كل قصيدة والتانية.');
+      return;
+    }
+    if(!confirm(`هيتم استيراد ${poems.length} قصيدة لديوان "${diwan}". متأكد؟`)) return;
+
+    btn.disabled = true;
+    let added = 0, skipped = 0, failed = 0;
+    for(let i=0;i<poems.length;i++){
+      const p = poems[i];
+      status.textContent = `جارِ الاستيراد... (${i+1}/${poems.length})`;
+      try{
+        const existing = await db.collection('poems').where('title','==',p.title).limit(1).get();
+        if(!existing.empty){ skipped++; continue; }
+        await db.collection('poems').add({
+          title: p.title,
+          text: p.text,
+          diwan: diwan,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        added++;
+      }catch(e){
+        failed++;
+      }
+    }
+    status.textContent = `تم: أُضيف ${added} قصيدة إلى ديوان "${diwan}"، اتخطى ${skipped} (موجودة بالفعل)${failed?`، فشل ${failed}`:''}.`;
+    btn.disabled = false;
+    if(added > 0){
+      textArea.value = '';
+      preview.textContent = '';
+    }
+    loadPoemsAdmin();
+  });
+}
+
 /* ===== صورة الشاعر الرئيسية (Hero) ===== */
 /* بتتخزن في مستند إعدادات واحد ثابت: settings/profile، حقل heroImage */
 
@@ -929,6 +1009,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   setupTabs();
   setupPoemForm();
   setupBulkImport();
+  setupPasteImport();
   setupHeroPhotoForm();
   setupPhotoForm();
   setupVideoForm();
