@@ -325,26 +325,68 @@ function setupBulkImport(){
 }
 
 /* ===== استيراد جماعي عن طريق لصق نص ===== */
-// بيقسّم النص الملصوق لقصايد بناءً على سطر لوحده فيه === بين كل قصيدة والتانية.
-// أول سطر غير فاضي بعد كل فاصل = العنوان، والباقي = نص القصيدة.
-function parsePastedDiwan(raw){
-  const blocks = raw
-    .replace(/\r\n/g, '\n')
-    .split(/^[ \t]*={3,}[ \t]*$/m);
+// بيدعم شكلين للنص الملصوق:
+// 1) الشكل التلقائي (المفضّل): تلزق الديوان زي ما هو من الوورد، وكل عنوان قصيدة
+//    مكتوب بين علامتي تنصيص فى أول سطره (زي " آخد ابن عمى ") — بيتعرف عليه لوحده
+//    من غير أي تعديل يدوي.
+// 2) لو مفيش علامات تنصيص على العناوين، بيرجع للفصل اليدوي: سطر لوحده فيه ===
+//    بين كل قصيدة والتانية، وأول سطر بعد الفاصل بيبقى هو العنوان.
+const QUOTE_CHARS = '"\u201c\u201d\u00ab\u00bb';
+
+function isQuotedTitleLine(line){
+  const t = line.trim();
+  return t.length > 0 && t.length < 120 && QUOTE_CHARS.includes(t[0]);
+}
+
+function stripQuotes(line){
+  let t = line.trim();
+  while(t.length && QUOTE_CHARS.includes(t[0])) t = t.slice(1).trim();
+  while(t.length && QUOTE_CHARS.includes(t[t.length-1])) t = t.slice(0,-1).trim();
+  return t;
+}
+
+function parseByQuotedTitles(lines){
+  const idx = [];
+  lines.forEach((l,i)=>{ if(isQuotedTitleLine(l)) idx.push(i); });
+  if(idx.length < 1) return [];
+  const poems = [];
+  idx.forEach((start,n)=>{
+    const end = n+1 < idx.length ? idx[n+1] : lines.length;
+    const title = stripQuotes(lines[start]);
+    const bodyLines = lines.slice(start+1, end).map(l=>l.trim()).filter(l=>l && !/^\.{3,}$/.test(l));
+    const text = bodyLines.join('\n').trim();
+    if(title && text) poems.push({ title, text });
+  });
+  return poems;
+}
+
+function parseBySeparator(lines){
+  const raw = lines.join('\n');
+  const blocks = raw.split(/^[ \t]*={3,}[ \t]*$/m);
   const poems = [];
   blocks.forEach(block=>{
-    const lines = block.split('\n').map(l=>l.trim());
+    const blines = block.split('\n').map(l=>l.trim());
     let i = 0;
-    while(i < lines.length && lines[i] === '') i++;
-    if(i >= lines.length) return;
-    const title = lines[i];
-    const bodyLines = lines.slice(i+1);
+    while(i < blines.length && blines[i] === '') i++;
+    if(i >= blines.length) return;
+    const title = blines[i];
+    const bodyLines = blines.slice(i+1);
     while(bodyLines.length && bodyLines[0] === '') bodyLines.shift();
     while(bodyLines.length && bodyLines[bodyLines.length-1] === '') bodyLines.pop();
     const text = bodyLines.join('\n').trim();
     if(title && text) poems.push({ title, text });
   });
   return poems;
+}
+
+function parsePastedDiwan(raw){
+  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  const quotedTitles = lines.filter(isQuotedTitleLine).length;
+  // لو فيه سطرين أو أكتر شكلهم عنوان بين علامتي تنصيص، نعتبرها الطريقة المستخدمة
+  if(quotedTitles >= 2){
+    return parseByQuotedTitles(lines);
+  }
+  return parseBySeparator(lines);
 }
 
 function setupPasteImport(){
