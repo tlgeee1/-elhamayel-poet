@@ -72,6 +72,12 @@
               <option value="bg-rose">وردي</option>
             </select>
           </div>
+          <div class="field">
+            <label>اسم الديوان</label>
+            <input type="text" id="poemDiwan" list="diwanList" placeholder="مثال: قالوا فى الأمثال">
+            <datalist id="diwanList"></datalist>
+            <p class="form-note" style="margin-top:4px;">اكتب اسم الديوان اللي القصيدة دي منه، عشان تتجمع مع باقي قصايده. لو سبته فاضي هتترتّب تحت "قصائد بدون ديوان".</p>
+          </div>
           <button class="btn-wine" style="border:none;cursor:pointer;" id="addPoemBtn">إضافة القصيدة</button>
           <button class="btn-sm" style="display:none;margin-inline-start:10px;" id="cancelEditBtn">إلغاء التعديل</button>
         </div>
