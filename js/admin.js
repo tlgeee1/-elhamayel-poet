@@ -239,46 +239,88 @@ function setupPoemForm(){
   });
 }
 
-/* ===== استيراد ديوان دفعة واحدة ===== */
+/* ===== استيراد ديوان (أو أكتر) دفعة واحدة ===== */
 // كل ديوان بيتم استيراده بيتحط ليه اسم ثابت في حقل diwan، عشان القصايد بتاعته
-// تتجمع مع بعض وتفضل متفرقة عن أي ديوان تاني هيتضاف بعدين.
-// لو عايز تستورد ديوان جديد تاني، اعمل ملف بيانات زي DIWAN_IMPORT_DATA بس بتعريف
-// إضافي فوقه: const DIWAN_IMPORT_NAME = "اسم الديوان الجديد";
+// تتجمع مع بعض وتفضل متفرقة عن أي ديوان تاني.
+//
+// عشان تضيف ديوان جديد للاستيراد بالجملة، اعمل ملف زي js/diwan-data-2.js بالشكل ده:
+//
+//   window.DIWAN_IMPORTS = window.DIWAN_IMPORTS || [];
+//   window.DIWAN_IMPORTS.push({
+//     name: "اسم الديوان الجديد",
+//     data: [
+//       { title: "عنوان القصيدة الأولى", text: "نص القصيدة..." },
+//       { title: "عنوان القصيدة التانية", text: "نص القصيدة..." }
+//     ]
+//   });
+//
+// وضيف سطر <script src="js/diwan-data-2.js"></script> في admin.html قبل سطر admin.js.
+// هيظهرلك أوتوماتيك زرار استيراد جديد بعنوان الديوان ده، من غير أي تعديل تاني في الكود.
+// (الديوان القديم "قالوا فى الأمثال" لسه شغال زي ما هو من غير أي تغيير.)
 
 function setupBulkImport(){
-  const card = document.getElementById('bulkImportCard');
-  const btn = document.getElementById('bulkImportBtn');
-  const status = document.getElementById('bulkImportStatus');
-  if(!card || typeof DIWAN_IMPORT_DATA === 'undefined') return;
+  const container = document.getElementById('bulkImportContainer');
+  if(!container) return;
 
-  const diwanName = (typeof DIWAN_IMPORT_NAME !== 'undefined' && DIWAN_IMPORT_NAME) || 'قالوا فى الأمثال';
+  const imports = [];
 
-  card.style.display = 'block';
-  document.getElementById('bulkCount').textContent = DIWAN_IMPORT_DATA.length;
+  // الطريقة القديمة: ديوان واحد ثابت معرّف في js/diwan-data.js
+  if(typeof DIWAN_IMPORT_DATA !== 'undefined' && DIWAN_IMPORT_DATA.length){
+    imports.push({
+      name: (typeof DIWAN_IMPORT_NAME !== 'undefined' && DIWAN_IMPORT_NAME) || 'قالوا فى الأمثال',
+      data: DIWAN_IMPORT_DATA
+    });
+  }
 
-  btn.addEventListener('click', async ()=>{
-    btn.disabled = true;
-    let added = 0, skipped = 0, failed = 0;
-    for(let i=0;i<DIWAN_IMPORT_DATA.length;i++){
-      const p = DIWAN_IMPORT_DATA[i];
-      status.textContent = `جارِ الاستيراد... (${i+1}/${DIWAN_IMPORT_DATA.length})`;
-      try{
-        const existing = await db.collection('poems').where('title','==',p.title).limit(1).get();
-        if(!existing.empty){ skipped++; continue; }
-        await db.collection('poems').add({
-          title: p.title,
-          text: p.text,
-          diwan: diwanName,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        added++;
-      }catch(e){
-        failed++;
+  // الطريقة الجديدة: أي عدد من الدواوين معرّفة في window.DIWAN_IMPORTS
+  if(typeof window.DIWAN_IMPORTS !== 'undefined'){
+    window.DIWAN_IMPORTS.forEach(item=>{
+      if(item && item.name && Array.isArray(item.data) && item.data.length){
+        imports.push(item);
       }
-    }
-    status.textContent = `تم: أُضيف ${added} قصيدة إلى ديوان "${diwanName}"، اتخطى ${skipped} (موجودة بالفعل)${failed?`، فشل ${failed}`:''}.`;
-    btn.disabled = false;
-    loadPoemsAdmin();
+    });
+  }
+
+  if(imports.length === 0) return;
+
+  imports.forEach(imp=>{
+    const card = document.createElement('div');
+    card.className = 'admin-card';
+    card.innerHTML = `
+      <h4 style="font-family:'Amiri', serif;font-size:18px;margin-bottom:8px;">استيراد ديوان "${escapeHtml(imp.name)}" دفعة واحدة</h4>
+      <p class="form-note" style="margin-top:0;">هيضيف كل القصائد اللي جوه الديوان (${imp.data.length} قصيدة) لأرشيف الموقع. آمن تدوس عليه أكتر من مرة، مش هيكرر أي قصيدة موجودة بالفعل.</p>
+      <button class="btn-outline" style="cursor:pointer;background:none;font-family:inherit;">استيراد الديوان الآن</button>
+      <p class="form-note"></p>
+    `;
+    const btn = card.querySelector('button');
+    const status = card.querySelector('p.form-note:last-child');
+
+    btn.addEventListener('click', async ()=>{
+      btn.disabled = true;
+      let added = 0, skipped = 0, failed = 0;
+      for(let i=0;i<imp.data.length;i++){
+        const p = imp.data[i];
+        status.textContent = `جارِ الاستيراد... (${i+1}/${imp.data.length})`;
+        try{
+          const existing = await db.collection('poems').where('title','==',p.title).limit(1).get();
+          if(!existing.empty){ skipped++; continue; }
+          await db.collection('poems').add({
+            title: p.title,
+            text: p.text,
+            diwan: imp.name,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          added++;
+        }catch(e){
+          failed++;
+        }
+      }
+      status.textContent = `تم: أُضيف ${added} قصيدة إلى ديوان "${imp.name}"، اتخطى ${skipped} (موجودة بالفعل)${failed?`، فشل ${failed}`:''}.`;
+      btn.disabled = false;
+      loadPoemsAdmin();
+    });
+
+    container.appendChild(card);
   });
 }
 
