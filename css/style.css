@@ -52,6 +52,13 @@ nav{
 }
 .brand .mark{color:var(--wine);font-size:26px;}
 .nav-links{display:flex;gap:34px;font-size:15px;color:var(--ink-soft);}
+
+.nav-toggle{
+  display:none;
+  flex-direction:column;justify-content:center;gap:5px;
+  width:34px;height:34px;padding:0;background:none;border:0;cursor:pointer;
+}
+.nav-toggle span{display:block;width:24px;height:2px;background:var(--ink);}
 .nav-links a{transition:color .2s;}
 .nav-links a:hover{color:var(--wine);}
 .nav-toggle{display:none;}
@@ -304,7 +311,19 @@ footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;
 @media (max-width:860px){
   .hero-inner{grid-template-columns:1fr;}
   .hero{padding:64px 0 56px;}
-  .nav-links{display:none;}
+  .nav-toggle{display:flex;}
+  .nav-links{
+    display:none;
+    position:absolute;top:100%;right:0;left:0;
+    flex-direction:column;gap:0;
+    background:var(--paper-raised);
+    border-bottom:1px solid var(--line);
+    box-shadow:0 16px 30px -18px var(--shadow);
+    z-index:20;
+  }
+  .nav-links.open{display:flex;}
+  .nav-links a{padding:16px 24px;border-top:1px solid var(--line);}
+  nav{position:relative;}
   .gallery-grid{grid-template-columns:repeat(2,1fr);}
   .videos-grid{grid-template-columns:1fr;}
   .poem-plate{padding:34px 26px;}
