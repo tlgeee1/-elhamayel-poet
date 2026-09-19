@@ -55,6 +55,24 @@ function setupDiwanModal(){
   document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeDiwan(); });
 }
 
+// بيبني صف قصيدة واحد (نفس التصميم القديم بالظبط)
+function buildPoemRow(p){
+  const row = document.createElement('div');
+  row.className = 'poem-row';
+  row.innerHTML = `
+    <div class="row-main">
+      <span class="bg-dot ${pickBackground(p)}"></span>
+      <div>
+        <h4>${escapeHtml(p.title)}</h4>
+        <div class="snippet">${escapeHtml((p.text||'').slice(0,80))}${(p.text||'').length>80?'…':''}</div>
+      </div>
+    </div>
+    <div class="date">${formatDate(p.createdAt)}</div>
+  `;
+  row.addEventListener('click', ()=> openDiwan(p));
+  return row;
+}
+
 async function loadPoems(){
   const listEl = document.getElementById('poemList');
   const featuredEl = document.getElementById('featuredPoem');
@@ -65,6 +83,12 @@ async function loadPoems(){
     if(snap.empty) return; // keep static placeholder content
 
     listEl.innerHTML = '';
+
+    // أول قصيدة (الأحدث) بتفضل هي المميزة فوق زي ما كانت، وبعدين
+    // باقي القصايد بتتقسّم تحت عنوان كل ديوان بدل قائمة واحدة مخلوطة
+    const UNSORTED = 'قصائد متفرقة';
+    const groups = {};
+    const order = [];
     let first = true;
 
     snap.forEach(doc=>{
@@ -76,20 +100,25 @@ async function loadPoems(){
         first = false;
         return;
       }
-      const row = document.createElement('div');
-      row.className = 'poem-row';
-      row.innerHTML = `
-        <div class="row-main">
-          <span class="bg-dot ${pickBackground(p)}"></span>
-          <div>
-            <h4>${escapeHtml(p.title)}</h4>
-            <div class="snippet">${escapeHtml((p.text||'').slice(0,80))}${(p.text||'').length>80?'…':''}</div>
-          </div>
-        </div>
-        <div class="date">${formatDate(p.createdAt)}</div>
-      `;
-      row.addEventListener('click', ()=> openDiwan(p));
-      listEl.appendChild(row);
+      const diwan = (p.diwan || '').trim() || UNSORTED;
+      if(!groups[diwan]){ groups[diwan] = []; order.push(diwan); }
+      groups[diwan].push(p);
+    });
+
+    order.forEach(diwanName=>{
+      const section = document.createElement('div');
+      section.className = 'diwan-section';
+
+      const heading = document.createElement('h3');
+      heading.className = 'diwan-section-title';
+      heading.textContent = diwanName;
+      section.appendChild(heading);
+
+      groups[diwanName].forEach(p=>{
+        section.appendChild(buildPoemRow(p));
+      });
+
+      listEl.appendChild(section);
     });
 
     if(listEl.children.length === 0){
