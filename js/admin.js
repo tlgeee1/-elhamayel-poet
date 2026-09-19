@@ -99,6 +99,15 @@ function loadAllAdminData(){
 
 /* ===== القصائد ===== */
 
+// بيملأ قائمة الاقتراحات (datalist) بأسماء الدواوين الموجودة فعليًا، عشان وقت
+// ما تكتب اسم ديوان قديم يقترحه عليك تلقائي بدل ما تكتبه غلط بمسافة زيادة مثلًا
+function updateDiwanDatalist(diwanNames){
+  const datalist = document.getElementById('diwanList');
+  if(!datalist) return;
+  const unique = [...new Set(diwanNames.filter(Boolean))];
+  datalist.innerHTML = unique.map(d => `<option value="${escapeHtml(d)}"></option>`).join('');
+}
+
 async function loadPoemsAdmin(){
   const list = document.getElementById('poemsAdminList');
   if(!list) return;
@@ -107,32 +116,55 @@ async function loadPoemsAdmin(){
     const snap = await db.collection('poems').orderBy('createdAt','desc').get();
     if(snap.empty){
       list.innerHTML = '<p class="form-note">لسه مفيش قصائد مضافة.</p>';
+      updateDiwanDatalist([]);
       return;
     }
+
+    // تجميع القصائد حسب "الديوان" — القصيدة اللي من غير ديوان بتتحط في مجموعة منفصلة
+    const UNSORTED = 'قصائد بدون ديوان';
+    const groups = {};
+    const order = [];
     snap.forEach(doc=>{
       const p = doc.data();
-      const row = document.createElement('div');
-      row.className = 'item-row';
-      row.innerHTML = `
-        <div>
-          <h4>${escapeHtml(p.title)}</h4>
-          <div class="snippet">${escapeHtml((p.text||'').slice(0,90))}${(p.text||'').length>90?'…':''}</div>
-        </div>
-        <div class="item-actions">
-          <button class="btn-sm" data-action="edit">تعديل</button>
-          <button class="btn-sm danger" data-action="delete">حذف</button>
-        </div>
-      `;
-      row.querySelector('[data-action="edit"]').addEventListener('click', ()=>{
-        startEditPoem(doc.id, p);
+      const diwan = (p.diwan || '').trim() || UNSORTED;
+      if(!groups[diwan]){ groups[diwan] = []; order.push(diwan); }
+      groups[diwan].push({ id: doc.id, data: p });
+    });
+
+    updateDiwanDatalist(order.filter(d => d !== UNSORTED));
+
+    order.forEach(diwanName=>{
+      const section = document.createElement('div');
+      section.className = 'diwan-group';
+      section.style.marginBottom = '18px';
+      section.innerHTML = `<h3 class="diwan-title" style="margin:0 0 8px;">${escapeHtml(diwanName)} <span class="form-note" style="display:inline;">(${groups[diwanName].length})</span></h3>`;
+
+      groups[diwanName].forEach(({id, data:p})=>{
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        row.innerHTML = `
+          <div>
+            <h4>${escapeHtml(p.title)}</h4>
+            <div class="snippet">${escapeHtml((p.text||'').slice(0,90))}${(p.text||'').length>90?'…':''}</div>
+          </div>
+          <div class="item-actions">
+            <button class="btn-sm" data-action="edit">تعديل</button>
+            <button class="btn-sm danger" data-action="delete">حذف</button>
+          </div>
+        `;
+        row.querySelector('[data-action="edit"]').addEventListener('click', ()=>{
+          startEditPoem(id, p);
+        });
+        row.querySelector('[data-action="delete"]').addEventListener('click', async ()=>{
+          if(!confirm('متأكد إنك عايز تحذف القصيدة دي؟')) return;
+          await db.collection('poems').doc(id).delete();
+          if(editingPoemId === id) cancelEditPoem();
+          loadPoemsAdmin();
+        });
+        section.appendChild(row);
       });
-      row.querySelector('[data-action="delete"]').addEventListener('click', async ()=>{
-        if(!confirm('متأكد إنك عايز تحذف القصيدة دي؟')) return;
-        await db.collection('poems').doc(doc.id).delete();
-        if(editingPoemId === doc.id) cancelEditPoem();
-        loadPoemsAdmin();
-      });
-      list.appendChild(row);
+
+      list.appendChild(section);
     });
   }catch(e){
     list.innerHTML = '<p class="form-note">حصل خطأ في تحميل القصائد.</p>';
@@ -146,6 +178,7 @@ function startEditPoem(id, p){
   document.getElementById('poemTitle').value = p.title || '';
   document.getElementById('poemText').value = p.text || '';
   document.getElementById('poemBg').value = p.bg || '';
+  document.getElementById('poemDiwan').value = p.diwan || '';
   document.getElementById('addPoemBtn').textContent = 'حفظ التعديل';
   document.getElementById('cancelEditBtn').style.display = 'inline-block';
   document.getElementById('poemTitle').scrollIntoView({behavior:'smooth', block:'center'});
@@ -156,6 +189,7 @@ function cancelEditPoem(){
   document.getElementById('poemTitle').value = '';
   document.getElementById('poemText').value = '';
   document.getElementById('poemBg').value = '';
+  document.getElementById('poemDiwan').value = '';
   document.getElementById('addPoemBtn').textContent = 'إضافة القصيدة';
   document.getElementById('cancelEditBtn').style.display = 'none';
 }
@@ -171,6 +205,7 @@ function setupPoemForm(){
     const title = document.getElementById('poemTitle').value.trim();
     const text = document.getElementById('poemText').value.trim();
     const bg = document.getElementById('poemBg').value;
+    const diwan = document.getElementById('poemDiwan').value.trim();
     if(!title || !text){
       alert('اكتب عنوان القصيدة ونصها الأول.');
       return;
@@ -181,15 +216,19 @@ function setupPoemForm(){
         const update = { title, text };
         if(bg) update.bg = bg;
         else update.bg = firebase.firestore.FieldValue.delete();
+        if(diwan) update.diwan = diwan;
+        else update.diwan = firebase.firestore.FieldValue.delete();
         await db.collection('poems').doc(editingPoemId).update(update);
         cancelEditPoem();
       }else{
         const data = { title, text, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
         if(bg) data.bg = bg;
+        if(diwan) data.diwan = diwan;
         await db.collection('poems').add(data);
         document.getElementById('poemTitle').value = '';
         document.getElementById('poemText').value = '';
         document.getElementById('poemBg').value = '';
+        document.getElementById('poemDiwan').value = '';
       }
       loadPoemsAdmin();
     }catch(e){
@@ -200,13 +239,19 @@ function setupPoemForm(){
   });
 }
 
-/* ===== استيراد ديوان "قالوا فى الأمثال" دفعة واحدة ===== */
+/* ===== استيراد ديوان دفعة واحدة ===== */
+// كل ديوان بيتم استيراده بيتحط ليه اسم ثابت في حقل diwan، عشان القصايد بتاعته
+// تتجمع مع بعض وتفضل متفرقة عن أي ديوان تاني هيتضاف بعدين.
+// لو عايز تستورد ديوان جديد تاني، اعمل ملف بيانات زي DIWAN_IMPORT_DATA بس بتعريف
+// إضافي فوقه: const DIWAN_IMPORT_NAME = "اسم الديوان الجديد";
 
 function setupBulkImport(){
   const card = document.getElementById('bulkImportCard');
   const btn = document.getElementById('bulkImportBtn');
   const status = document.getElementById('bulkImportStatus');
   if(!card || typeof DIWAN_IMPORT_DATA === 'undefined') return;
+
+  const diwanName = (typeof DIWAN_IMPORT_NAME !== 'undefined' && DIWAN_IMPORT_NAME) || 'قالوا فى الأمثال';
 
   card.style.display = 'block';
   document.getElementById('bulkCount').textContent = DIWAN_IMPORT_DATA.length;
@@ -223,6 +268,7 @@ function setupBulkImport(){
         await db.collection('poems').add({
           title: p.title,
           text: p.text,
+          diwan: diwanName,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         added++;
@@ -230,7 +276,7 @@ function setupBulkImport(){
         failed++;
       }
     }
-    status.textContent = `تم: أُضيف ${added} قصيدة، اتخطى ${skipped} (موجودة بالفعل)${failed?`، فشل ${failed}`:''}.`;
+    status.textContent = `تم: أُضيف ${added} قصيدة إلى ديوان "${diwanName}"، اتخطى ${skipped} (موجودة بالفعل)${failed?`، فشل ${failed}`:''}.`;
     btn.disabled = false;
     loadPoemsAdmin();
   });
@@ -248,7 +294,6 @@ function setupHeroPhotoForm(){
 
   let pendingImage = null;
 
-  // اعرض الصورة الحالية (لو موجودة) لما التبويب يتفتح
   db.collection('settings').doc('profile').get().then(doc=>{
     if(doc.exists && doc.data().heroImage){
       preview.src = doc.data().heroImage;
@@ -301,14 +346,12 @@ function setupHeroPhotoForm(){
 }
 
 /* ===== عن الشاعر والتواصل ===== */
-/* بتتخزن في نفس مستند settings/profile جنب صورة الشاعر */
 
 function setupProfileForm(){
   const btn = document.getElementById('saveProfileBtn');
   const status = document.getElementById('profileStatus');
   if(!btn) return;
 
-  // اعرض القيم الحالية لما التبويب يتفتح
   db.collection('settings').doc('profile').get().then(doc=>{
     if(!doc.exists) return;
     const d = doc.data();
@@ -441,8 +484,6 @@ function setupPressForm(){
 }
 
 /* ===== الصور ===== */
-/* الصورة بتتضغط في المتصفح وتتحول لـ Base64 وتتخزن مباشرة في Firestore
-   (مفيش استضافة خارجية، ومفيش حاجة اسمها Firebase Storage مدفوعة) */
 
 function compressImage(file, maxWidth = 1200, quality = 0.75){
   return new Promise((resolve, reject)=>{
@@ -539,7 +580,7 @@ function setupPhotoForm(){
   const status = document.getElementById('photoStatus');
   if(!btn) return;
 
-  let pendingImage = null; // صورة جديدة اتضغطت وجاهزة للحفظ (لو اتختارت)
+  let pendingImage = null;
 
   fileInput.addEventListener('change', async ()=>{
     const file = fileInput.files[0];
@@ -605,8 +646,6 @@ function setupPhotoForm(){
 }
 
 /* ===== الفيديوهات ===== */
-/* نوعين: (1) رابط يوتيوب عادي بيتحول لصيغة embed تلقائيًا
-           (2) رفع مباشر من جهاز الشاعر لحساب Cloudinary مجاني (بدون سيرفر عندنا) */
 
 const CLOUDINARY_CLOUD_NAME = 'qtsozhce';
 const CLOUDINARY_UPLOAD_PRESET = 'elhamayel_videos';
@@ -618,7 +657,6 @@ function toEmbedUrl(link){
   return null;
 }
 
-// بيرفع ملف الفيديو مباشرة من المتصفح لـ Cloudinary، وبيرجع رابط الفيديو الجاهز
 function uploadVideoToCloudinary(file, onProgress){
   return new Promise((resolve, reject)=>{
     const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
@@ -690,10 +728,8 @@ async function loadVideosAdmin(){
   }
 }
 
-/* -- تعديل فيديو: بيوجّه للفورم المناسب حسب نوعه -- */
-
-let editingVideoId = null;       // فيديو من نوع "يوتيوب" بيتعدل
-let editingVideoFileId = null;   // فيديو من نوع "مرفوع" بيتعدل
+let editingVideoId = null;
+let editingVideoFileId = null;
 
 function startEditVideo(id, v){
   if(v.type === 'upload'){
@@ -755,8 +791,6 @@ function setupVideoForm(){
     }
   });
 }
-
-/* -- رفع فيديو من الجهاز (Cloudinary) -- */
 
 function startEditVideoFile(id, v){
   editingVideoFileId = id;
